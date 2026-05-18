@@ -1,115 +1,85 @@
 # InnovaGov
 
-Uma aplicação web moderna para gestão e inovação governamental.
+Aplicacao web moderna para gestao e inovacao governamental.
 
-## 📋 Pré-requisitos
+## Pre-requisitos
 
-Antes de começar, certifique-se de ter instalado:
+Antes de comecar, instale:
 
-- **Node.js** (versão 16 ou superior) - [Download aqui](https://nodejs.org/)
-- **pnpm** (gerenciador de pacotes) - [Guia de instalação](https://pnpm.io/pt/installation)
+- **Node.js** versao 16 ou superior
+- **pnpm** como gerenciador de pacotes
 
-Se não tem pnpm instalado, execute:
+Se nao tiver o pnpm instalado:
+
 ```bash
 npm install -g pnpm
 ```
 
-## 🚀 Como rodar o projeto
+## Como rodar
 
-### 1. Clonar o repositório
-
-```bash
-git clone <seu-repositorio>
-cd InnovaGov
-```
-
-### 2. Instalar dependências
+Instale as dependencias:
 
 ```bash
 pnpm install
 ```
 
-Isso vai baixar todas as dependências necessárias listadas no `package.json`.
-
-### 3. Iniciar o servidor de desenvolvimento
+Inicie o ambiente de desenvolvimento:
 
 ```bash
 pnpm run dev
 ```
 
-O servidor vai iniciar em `http://localhost:5173` (ou outra porta disponível).
+Por padrao, o Vite inicia em `http://localhost:3000` ou na proxima porta disponivel.
 
-## 📦 Scripts disponíveis
+## Scripts
 
-- **`pnpm run dev`** - Inicia o servidor de desenvolvimento
-- **`pnpm run build`** - Compila o projeto para produção
-- **`pnpm run start`** - Executa a aplicação em modo de produção
-- **`pnpm run preview`** - Visualiza o build de produção localmente
-- **`pnpm run check`** - Verifica tipos TypeScript sem emitir arquivos
-- **`pnpm run format`** - Formata o código com Prettier
+- `pnpm run dev`: inicia o frontend com Vite.
+- `pnpm run build`: gera o build do frontend e compila o backend.
+- `pnpm run start`: executa a aplicacao em modo de producao.
+- `pnpm run preview`: visualiza o build do frontend localmente.
+- `pnpm run check`: verifica os tipos TypeScript.
+- `pnpm run format`: formata o codigo com Prettier.
 
-## 🏗️ Estrutura do projeto
+## Estrutura
 
-```
+```text
 InnovaGov/
-├── client/                 # Código do frontend (React + Vite)
-│   ├── src/
-│   │   ├── components/    # Componentes React
-│   │   ├── pages/         # Páginas da aplicação
-│   │   ├── contexts/      # Context API
-│   │   ├── hooks/         # Custom hooks
-│   │   ├── lib/           # Utilitários
-│   │   └── main.tsx       # Ponto de entrada
-│   └── public/            # Arquivos estáticos
-├── server/                # Código do backend (Node.js + Express)
-├── shared/                # Código compartilhado entre cliente e servidor
-├── package.json           # Dependências do projeto
-└── pnpm-lock.yaml        # Lock file das dependências (NÃO MODIFIQUE)
+|-- apps/
+|   |-- frontend/             # Aplicacao web React + Vite
+|   |   |-- index.html
+|   |   |-- public/           # Arquivos estaticos
+|   |   `-- src/
+|   |       |-- components/   # Componentes React
+|   |       |-- contexts/     # Contextos React
+|   |       |-- hooks/        # Hooks customizados
+|   |       |-- lib/          # Utilitarios do frontend
+|   |       |-- pages/        # Paginas da aplicacao
+|   |       |-- App.tsx
+|   |       `-- main.tsx
+|   `-- backend/              # Servidor Node.js + Express
+|       `-- index.ts
+|-- packages/
+|   `-- shared/               # Codigo compartilhado entre frontend e backend
+|-- patches/                  # Patches de dependencias pnpm
+|-- package.json              # Scripts e dependencias
+|-- tsconfig.json             # Configuracao TypeScript
+|-- vite.config.ts            # Configuracao Vite
+`-- pnpm-lock.yaml
 ```
 
-## 🔧 Tecnologias utilizadas
+## Tecnologias
 
-- **Frontend**: React, TypeScript, Vite, TailwindCSS
-- **Backend**: Node.js, Express
-- **UI Components**: Radix UI
-- **Build Tool**: Vite + esbuild
-- **Package Manager**: pnpm
+- **Linguagem principal:** TypeScript
+- **Frontend:** React, Vite, TailwindCSS
+- **Backend:** Node.js, Express
+- **Componentes UI:** Radix UI
+- **Build:** Vite e TypeScript Compiler
+- **Pacotes:** pnpm
 
-## ⚙️ Variáveis de ambiente
+## Variaveis de ambiente
 
-Se precisar configurar variáveis de ambiente, crie um arquivo `.env.local` na raiz do projeto:
+Se precisar configurar variaveis locais, crie um arquivo `.env.local` na raiz do projeto.
 
-```bash
-cp .env .env.local
-```
+## Observacao sobre o backend
 
-Edite o arquivo `.env.local` com as variáveis necessárias.
-
-## 🐛 Troubleshooting
-
-### Erro: "pnpm command not found"
-Instale pnpm globalmente:
-```bash
-npm install -g pnpm
-```
-
-### Porta já está em uso
-O Vite tentará usar a próxima porta disponível automaticamente. Se quiser especificar uma porta:
-```bash
-pnpm run dev -- --port 3000
-```
-
-### Problemas com dependências
-Limpe o cache e reinstale:
-```bash
-pnpm store prune
-pnpm install
-```
-
-## 📝 Licença
-
-MIT
-
-## 👥 Contribuindo
-
-Para contribuir com o projeto, faça um fork e envie um pull request.
+O backend atual serve os arquivos estaticos gerados pelo frontend em producao e redireciona rotas para o `index.html`. Ele ainda nao possui uma API de negocio separada.

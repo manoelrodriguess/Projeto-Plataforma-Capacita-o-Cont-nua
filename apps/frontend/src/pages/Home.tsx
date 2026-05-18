@@ -79,6 +79,8 @@ const storageKeys = {
   diagnostic: 'capacitagov-diagnostic',
 };
 
+const recommendedTrailLimit = 4;
+
 const courses: Course[] = [
   {
     id: 1,
@@ -785,6 +787,16 @@ export default function Home() {
     const scoreDifference = scoreCourseRecommendation(b.id, diagnostic) - scoreCourseRecommendation(a.id, diagnostic);
     return scoreDifference || a.id - b.id;
   });
+  const scoredRecommendedCourses = recommendedCourses
+    .filter((course) => scoreCourseRecommendation(course.id, diagnostic) > 0)
+    .slice(0, recommendedTrailLimit);
+  const recommendedTrailCourses = scoredRecommendedCourses.length > 0
+    ? scoredRecommendedCourses
+    : recommendedCourses.slice(0, recommendedTrailLimit);
+  const continueCourses = courses.filter((course) => {
+    const progress = courseProgress(course);
+    return progress > 0 && progress < 100;
+  }).slice(0, 4);
 
   return (
     <div className={`min-h-screen bg-gradient-to-br from-white via-[#f0f5ff] to-[#e8f0ff] flex flex-col ${compactMode ? 'text-sm' : ''}`}>
@@ -886,8 +898,8 @@ export default function Home() {
                 <h2 className="text-5xl font-bold text-gray-900 mb-2 flex items-center gap-3">Bem-vindo de volta! <Hand className="text-[#1351b4]" size={40} /></h2>
                 <p className="text-xl text-gray-600">Continue sua jornada de aprendizado e conhecimento.</p>
                 <div className="absolute right-0 top-0 z-20 hidden xl:block">
-                  <MascotTip title="Comece por aqui" compact className="max-w-xs">
-                    Eu te guio pelo diagnóstico e ajudo a montar uma trilha mais certeira.
+                  <MascotTip title="Comece por aqui!" compact className="max-w-xs">
+                    Eu te guio pelo diagnóstico e ajudo a recomendar as trilhas mais correspondentes com seu perfil.
                   </MascotTip>
                 </div>
               </div>
@@ -969,7 +981,9 @@ export default function Home() {
                 </Card>                
               </div>
 
-              <CourseGrid title="Continue de Onde Parou" courses={courses} progressFor={courseProgress} onStart={startCourse} />
+              {continueCourses.length > 0 && (
+                <CourseGrid title="Continue de Onde Parou" courses={continueCourses} progressFor={courseProgress} onStart={startCourse} />
+              )}
             </div>
           )}
 
@@ -990,7 +1004,7 @@ export default function Home() {
           {currentPage === 'trail' && (
             <TrailPage
               diagnostic={diagnostic}
-              courses={recommendedCourses}
+              courses={recommendedTrailCourses}
               progressFor={courseProgress}
               onStart={startCourse}
               onRetake={() => navigate('diagnostic')}

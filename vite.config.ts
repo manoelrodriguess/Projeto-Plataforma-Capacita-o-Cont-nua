@@ -2,10 +2,13 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { defineConfig, type Plugin, type ViteDevServer } from "vite";
 
-const PROJECT_ROOT = import.meta.dirname;
-const LOG_DIR = path.join(PROJECT_ROOT, "public",);
+const PROJECT_ROOT = fileURLToPath(new URL(".", import.meta.url));
+const FRONTEND_ROOT = path.join(PROJECT_ROOT, "apps", "frontend");
+const SHARED_ROOT = path.join(PROJECT_ROOT, "packages", "shared");
+const LOG_DIR = path.join(FRONTEND_ROOT, "public");
 const MAX_LOG_SIZE_BYTES = 1 * 1024 * 1024;
 const TRIM_TARGET_BYTES = Math.floor(MAX_LOG_SIZE_BYTES * 0.6);
 
@@ -186,15 +189,15 @@ export default defineConfig({
   plugins,
   resolve: {
     alias: {
-      "@": path.resolve(import.meta.dirname, "client", "src"),
-      "@shared": path.resolve(import.meta.dirname, "shared"),
-      "@assets": path.resolve(import.meta.dirname, "attached_assets"),
+      "@": path.join(FRONTEND_ROOT, "src"),
+      "@shared": SHARED_ROOT,
+      "@assets": path.join(PROJECT_ROOT, "attached_assets"),
     },
   },
-  envDir: path.resolve(import.meta.dirname),
-  root: path.resolve(import.meta.dirname, "client"),
+  envDir: PROJECT_ROOT,
+  root: FRONTEND_ROOT,
   build: {
-    outDir: path.resolve(import.meta.dirname, "dist/public"),
+    outDir: path.join(PROJECT_ROOT, "dist", "public"),
     emptyOutDir: true,
   },
   server: {
