@@ -1,7 +1,15 @@
-import { type ReactNode, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { LoadingDot } from '@/components/LoadingDot';
+import { CertificatePreview } from '@/components/CertificatePreview';
+import { MascotAvatar } from '@/components/MascotAvatar';
+import { MascotTip } from '@/components/MascotTip';
+import { DashboardDiagnostic } from '@/components/DashboardDiagnostic';
+import { readStorage, readProgressStorage } from '@/lib/utils/storage';
+import { slugify } from '@/lib/utils/text';
+import { createCertificatePdf } from '@/lib/utils/pdf';
 import {
   Award,
   BarChart3,
@@ -53,194 +61,7 @@ const pageMotion = {
   transition: { duration: 0.28, ease: [0.16, 1, 0.3, 1] as const },
 };
 
-function LoadingDot() {
-  return <span className="h-2 w-2 animate-pulse rounded-full bg-current" />;
-}
 
-function readStorage<T>(key: string, fallback: T, legacyKey?: string): T {
-  try {
-    const value = window.localStorage.getItem(key) ?? (legacyKey ? window.localStorage.getItem(legacyKey) : null);
-    return value ? (JSON.parse(value) as T) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function slugify(value: string) {
-  return value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
-}
-
-function wrapCanvasText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number) {
-  const words = text.split(' ');
-  const lines: string[] = [];
-  let line = '';
-
-  words.forEach((word) => {
-    const testLine = line ? `${line} ${word}` : word;
-    if (ctx.measureText(testLine).width <= maxWidth) {
-      line = testLine;
-      return;
-    }
-
-    if (line) lines.push(line);
-    line = word;
-  });
-
-  if (line) lines.push(line);
-  return lines;
-}
-
-function canvasToBlob(canvas: HTMLCanvasElement, type = 'image/jpeg', quality = 0.95) {
-  return new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob((blob) => {
-      if (blob) {
-        resolve(blob);
-        return;
-      }
-
-      reject(new Error('Não foi possível gerar a imagem do certificado.'));
-    }, type, quality);
-  });
-}
-
-function createPdfFromJpeg(image: Uint8Array, width: number, height: number) {
-  const encoder = new TextEncoder();
-  const chunks: (string | Uint8Array)[] = [];
-  const offsets: number[] = [];
-  let length = 0;
-
-  const add = (chunk: string | Uint8Array) => {
-    chunks.push(chunk);
-    length += typeof chunk === 'string' ? encoder.encode(chunk).length : chunk.byteLength;
-  };
-
-  const addObject = (body: string | Uint8Array, prefix: string, suffix = '\nendobj\n') => {
-    offsets.push(length);
-    add(prefix);
-    add(body);
-    add(suffix);
-  };
-
-  const pageWidth = 842;
-  const pageHeight = 595;
-  const content = `q\n${pageWidth} 0 0 ${pageHeight} 0 0 cm\n/Im0 Do\nQ`;
-
-  add('%PDF-1.4\n%\xE2\xE3\xCF\xD3\n');
-  addObject('<< /Type /Catalog /Pages 2 0 R >>', '1 0 obj\n');
-  addObject('<< /Type /Pages /Kids [3 0 R] /Count 1 >>', '2 0 obj\n');
-  addObject(
-    `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>`,
-    '3 0 obj\n',
-  );
-  addObject(
-    image,
-    `4 0 obj\n<< /Type /XObject /Subtype /Image /Width ${width} /Height ${height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${image.byteLength} >>\nstream\n`,
-    '\nendstream\nendobj\n',
-  );
-  addObject(content, `5 0 obj\n<< /Length ${encoder.encode(content).length} >>\nstream\n`, '\nendstream\nendobj\n');
-
-  const xrefOffset = length;
-  add(`xref\n0 6\n0000000000 65535 f \n${offsets.map((offset) => `${String(offset).padStart(10, '0')} 00000 n `).join('\n')}\n`);
-  add(`trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`);
-
-  return new Blob(chunks, { type: 'application/pdf' });
-}
-
-async function createCertificatePdf(course: Course, competencies: string[]) {
-  const width = 1684;
-  const height = 1190;
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext('2d');
-
-  if (!ctx) {
-    throw new Error('Não foi possível preparar o certificado.');
-  }
-
-  const issueDate = new Date().toLocaleDateString('pt-BR');
-  const certificateCode = `INN-${course.id}-100-${Date.now().toString().slice(-6)}`;
-  const totalMinutes = course.modules.reduce((sum, module) => sum + module.time, 0);
-
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, width, height);
-
-  const gradient = ctx.createLinearGradient(0, 0, width, 0);
-  gradient.addColorStop(0, '#17C7B2');
-  gradient.addColorStop(1, '#1464E9');
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, width, 24);
-  ctx.fillRect(0, height - 24, width, 24);
-
-  ctx.strokeStyle = '#d5dce5';
-  ctx.lineWidth = 4;
-  ctx.strokeRect(74, 74, width - 148, height - 148);
-  ctx.strokeStyle = '#1464E9';
-  ctx.lineWidth = 2;
-  ctx.strokeRect(104, 104, width - 208, height - 208);
-
-  ctx.textAlign = 'center';
-  ctx.fillStyle = '#111827';
-  ctx.font = '700 44px Arial';
-  ctx.fillText('InnovaGov', width / 2, 178);
-
-  ctx.fillStyle = '#1464E9';
-  ctx.font = '700 72px Arial';
-  ctx.fillText('CERTIFICADO', width / 2, 290);
-
-  ctx.fillStyle = '#4b5563';
-  ctx.font = '400 30px Arial';
-  ctx.fillText('Certificamos que', width / 2, 390);
-
-  ctx.fillStyle = '#111827';
-  ctx.font = '700 54px Arial';
-  ctx.fillText(currentUser.name, width / 2, 475);
-
-  ctx.fillStyle = '#4b5563';
-  ctx.font = '400 30px Arial';
-  ctx.fillText('concluiu com êxito o curso', width / 2, 548);
-
-  ctx.fillStyle = '#111827';
-  ctx.font = '700 44px Arial';
-  wrapCanvasText(ctx, course.title, 1160).forEach((line, index) => {
-    ctx.fillText(line, width / 2, 625 + index * 52);
-  });
-
-  ctx.fillStyle = '#4b5563';
-  ctx.font = '400 26px Arial';
-  ctx.fillText(`Carga horária: ${totalMinutes} minutos   •   Nível: ${course.level}`, width / 2, 760);
-
-  ctx.fillStyle = '#1464E9';
-  ctx.font = '700 28px Arial';
-  ctx.fillText('Competências desenvolvidas', width / 2, 835);
-
-  ctx.fillStyle = '#374151';
-  ctx.font = '400 25px Arial';
-  wrapCanvasText(ctx, competencies.join(' • '), 1120).slice(0, 2).forEach((line, index) => {
-    ctx.fillText(line, width / 2, 885 + index * 34);
-  });
-
-  ctx.fillStyle = '#6b7280';
-  ctx.font = '400 23px Arial';
-  ctx.fillText(`Data de emissão: ${issueDate}`, width / 2, 1010);
-  ctx.font = '700 23px Arial';
-  ctx.fillText(`Código: ${certificateCode}`, width / 2, 1050);
-
-  const imageBlob = await canvasToBlob(canvas);
-  const image = new Uint8Array(await imageBlob.arrayBuffer());
-  return createPdfFromJpeg(image, width, height);
-}
-
-function readProgressStorage() {
-  const savedProgress = readStorage<ProgressState>(storageKeys.progress, demoProgress, legacyStorageKeys.progress);
-  const completedCount = Object.values(savedProgress).reduce((total, modules) => total + modules.length, 0);
-  return completedCount > 0 ? savedProgress : demoProgress;
-}
 
 export default function Home() {
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
@@ -399,7 +220,7 @@ export default function Home() {
     const competencies = courseCompetencies[course.id] ?? [];
     try {
       await new Promise((resolve) => setTimeout(resolve, 450));
-      const blob = await createCertificatePdf(course, competencies);
+      const blob = await createCertificatePdf(course, competencies, currentUser);
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -650,16 +471,10 @@ export default function Home() {
                   <h3 className="mb-3 text-base font-bold leading-tight text-gray-900 md:mb-4 md:text-2xl">Resultado rápido</h3>
                   <p className="text-2xl md:text-3xl font-bold text-gray-900">{stats.estimatedHoursSaved}h</p>
                   <p className="mt-2 text-xs text-gray-600 md:text-sm">{stats.completedModules} checkpoints concluídos</p>
-                  <div className="hidden">
-                    <ImpactRow label="Checkpoints concluídos" value={String(stats.completedModules)} />
-                    <ImpactRow label="Competências desenvolvidas" value={String(stats.developedCompetencies)} />
-                    <ImpactRow label="Horas economizadas estimadas" value={`${stats.estimatedHoursSaved}h`} />
-                  </div>
                 </Card>
               </div>
 
-              <div className="hidden">
-                <Card className="lg:col-span-3 bg-white/75 border border-[#d5dce5] p-6">
+              <Card className={`mb-8 bg-white/70 backdrop-blur-sm ${interactiveCard} p-4 md:p-6`}>
                   <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
                     <div>
                       <p className="text-sm font-semibold text-[#008AF4] mb-1">TRILHA RECOMENDADA</p>
@@ -677,8 +492,7 @@ export default function Home() {
                       </button>
                     ))}
                   </div>
-                </Card>                
-              </div>
+                </Card>
 
               {continueCourses.length > 1 && (
                 <CourseGrid title="Outros cursos em andamento" courses={continueCourses.slice(1)} progressFor={courseProgress} onStart={openCourseIntro} />
@@ -1062,138 +876,6 @@ export default function Home() {
   );
 }
 
-function ImpactRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-3 border-b border-[#d9efff] pb-3 last:border-b-0">
-      <span className="text-sm text-gray-600">{label}</span>
-      <span className="text-xl font-bold text-[#008AF4]">{value}</span>
-    </div>
-  );
-}
-
-function CertificatePreview({ course, competencies, compact = false }: { course: Course; competencies: string[]; compact?: boolean }) {
-  return (
-    <div className={`relative overflow-hidden bg-white ${compact ? 'p-3' : 'p-4'}`}>
-      <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-[#17C7B2] to-[#1464E9]" />
-      <div className={`rounded-md border border-[#d5dce5] bg-gradient-to-br from-white to-[#f3fbff] ${compact ? 'p-3' : 'p-4'}`}>
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <div>
-            <p className="bg-gradient-to-r from-[#17C7B2] to-[#1464E9] bg-clip-text text-sm font-bold text-transparent">InnovaGov</p>
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Certificado</p>
-          </div>
-          <Award size={compact ? 22 : 28} className="text-[#1464E9]" />
-        </div>
-        <div className="border-y border-[#d5dce5] py-3 text-center">
-          <p className="text-[10px] font-semibold uppercase text-gray-500">Concedido a</p>
-          <p className={`${compact ? 'text-base' : 'text-lg'} font-bold text-gray-900`}>{currentUser.name}</p>
-          <p className="mt-2 text-xs font-medium leading-snug text-gray-700">{course.title}</p>
-        </div>
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {competencies.slice(0, compact ? 2 : 3).map((competency) => (
-            <span key={competency} className="rounded-full bg-[#eef8ff] px-2 py-0.5 text-[10px] font-semibold text-[#173DB7]">
-              {competency}
-            </span>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function MascotAvatar({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
-  const dimensions = {
-    sm: 'h-10 w-10',
-    md: 'h-16 w-16',
-    lg: 'h-24 w-24',
-  };
-
-  return (
-    <img
-      src="/innovagov-mascot.png"
-      alt=""
-      aria-hidden="true"
-      className={`${dimensions[size]} shrink-0 object-contain drop-shadow-md`}
-    />
-  );
-}
-
-function MascotTip({
-  title,
-  children,
-  compact = false,
-  className = '',
-}: {
-  title: string;
-  children: ReactNode;
-  compact?: boolean;
-  className?: string;
-}) {
-  const [visible, setVisible] = useState(true);
-
-  if (!visible) return null;
-
-  return (
-    <motion.div
-      {...pageMotion}
-      className={`pointer-events-auto relative flex items-center ${compact ? 'gap-3 rounded-lg p-3 pr-9 shadow-md' : 'gap-4 rounded-lg p-4 pr-10 shadow-xl'} border border-[#bfe3ff] bg-white/95 backdrop-blur ${className}`}
-    >
-      <button
-        type="button"
-        onClick={() => setVisible(false)}
-        className="absolute right-2 top-2 rounded-full p-1 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900"
-        aria-label="Fechar dica"
-      >
-        <X size={14} />
-      </button>
-      <MascotAvatar size={compact ? 'sm' : 'md'} />
-      <div>
-        <p className="text-sm font-bold text-gray-900">{title}</p>
-        <p className="text-sm text-gray-600">{children}</p>
-      </div>
-    </motion.div>
-  );
-}
-
-function DashboardDiagnostic({ onStart }: { onStart: () => void }) {
-  return (
-    <Card className={`bg-white/70 backdrop-blur-sm ${interactiveCard} p-4 md:p-6`}>
-      <div className="flex h-full flex-col justify-between gap-3 md:gap-4">
-        <div>
-          <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-[#008AF4] to-[#173DB7] rounded-lg flex items-center justify-center mb-3 md:mb-4 text-white">
-            <Check size={22} className="md:h-6 md:w-6" />
-          </div>
-          <p className="text-xs md:text-sm font-semibold text-[#008AF4] mb-1">DIAGNÓSTICO</p>
-          <h3 className="text-base md:text-xl font-bold leading-tight text-gray-900">Descubra a trilha ideal</h3>
-          <p className="hidden">
-            Acesse o diagnóstico inicial, responda quatro pontos sobre sua rotina e veja as trilhas recomendadas para o seu perfil.
-          </p>
-        </div>
-        <div className="hidden">
-          <div className="rounded-lg border border-[#bfe3ff] bg-[#f3fbff] p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#008AF4] text-white">
-                <Check size={20} />
-              </div>
-              <div>
-                <p className="text-sm font-bold text-gray-900">Diagnóstico completo</p>
-                <p className="text-sm text-gray-600">Base para ordenar as trilhas recomendadas.</p>
-              </div>
-            </div>
-          </div>
-          <Button type="button" onClick={onStart} className="bg-gradient-to-r from-[#008AF4] to-[#173DB7] text-white">
-            Fazer diagnóstico
-            <ChevronRight size={16} />
-          </Button>
-        </div>
-        <Button type="button" onClick={onStart} className="w-full bg-gradient-to-r from-[#008AF4] to-[#173DB7] px-2 text-xs text-white md:text-sm">
-          Fazer diagnóstico
-          <ChevronRight size={16} />
-        </Button>
-      </div>
-    </Card>
-  );
-}
-
 function CourseIntroPage({
   course,
   progress,
@@ -1269,7 +951,7 @@ function CourseIntroPage({
               </div>
               <ul className="grid gap-2 sm:grid-cols-2">
                 {learningOutcomes.map((outcome) => (
-                  <li key={outcome} className="flex min-h-10 items-center gap-2 rounded-lg bg-[#f3fbff] px-3 py-2 text-sm font-medium text-gray-700">
+                  <li key={outcome} className="flex min-h-10 items-center border border-[#bfe3ff] gap-2 rounded-lg bg-[#f3fbff] px-3 py-2 text-sm font-medium text-[#173DB7]">
                     <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white text-[#17C7B2] shadow-sm">
                       <Check size={14} />
                     </span>
