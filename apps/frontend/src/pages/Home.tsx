@@ -118,6 +118,11 @@ export default function Home() {
     return clampPercent((completed / course.modules.length) * 100);
   };
 
+  const firstIncompleteModuleIndex = (course: Course, completedIds: number[] = progress[course.id] ?? []) => {
+    const moduleIndex = course.modules.findIndex((module) => !completedIds.includes(module.id));
+    return moduleIndex === -1 ? course.modules.length - 1 : moduleIndex;
+  };
+
   const stats = useMemo(() => {
     const totalModules = courses.reduce((total, course) => total + course.modules.length, 0);
     const completedCount = courses.reduce((total, course) => total + (progress[course.id]?.length ?? 0), 0);
@@ -160,7 +165,7 @@ export default function Home() {
   const startCourse = (courseId: number) => {
     const course = courses.find((item) => item.id === courseId) ?? courses[0];
     const completed = progress[course.id] ?? [];
-    const nextIndex = Math.min(completed.length, course.modules.length - 1);
+    const nextIndex = firstIncompleteModuleIndex(course, completed);
     setSelectedCourseId(course.id);
     setCurrentModule(nextIndex);
     setSelectedAnswer(null);
@@ -202,7 +207,27 @@ export default function Home() {
       return;
     }
 
-    setShowCompletion(true);
+    if (completedModules.length === selectedCourse.modules.length) {
+      setShowCompletion(true);
+      return;
+    }
+
+    resetQuizState(firstIncompleteModuleIndex(selectedCourse, completedModules));
+  };
+
+  const skipQuestion = () => {
+    if (currentModule < selectedCourse.modules.length - 1) {
+      resetQuizState(currentModule + 1);
+      return;
+    }
+
+    const pendingModuleIndex = firstIncompleteModuleIndex(selectedCourse, completedModules);
+    if (pendingModuleIndex !== currentModule) {
+      resetQuizState(pendingModuleIndex);
+      return;
+    }
+
+    navigate('courses');
   };
 
   const resetProgress = () => {
@@ -365,10 +390,10 @@ export default function Home() {
         <main className={`flex-1 overflow-auto transition-all duration-300 ${sidebarOpen && isDesktop ? 'lg:ml-72' : 'ml-0'}`}>
           {currentPage === 'dashboard' && (
             <div className="relative p-3 sm:p-5">
-              <div className="relative mb-4 sm:mb-8">
+              <div className="relative mb-6 sm:mb-10">
                 <h2 className="mb-1 flex items-center gap-2 text-2xl font-bold text-gray-900 sm:mb-2 sm:gap-3 sm:text-5xl">Bem-vindo de volta! <Hand className="h-7 w-7 text-[#008AF4] sm:h-10 sm:w-10" /></h2>
                 <p className="text-sm leading-relaxed text-gray-600 sm:text-xl">Retome sua capacitação pelo ponto mais importante agora.</p>
-                <div className="absolute right-0 -top-5 z-20 hidden xl:block">
+                <div className="absolute right-5 top-1 z-20 hidden xl:block">
                   <MascotTip title="Nina recomenda" compact className="max-w-xs">
                     O primeiro card mostra o melhor próximo passo para você não precisar procurar onde parou.
                   </MascotTip>
@@ -438,30 +463,10 @@ export default function Home() {
                 </div>
               </Card>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-6 mb-8 md:mb-12">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-6">
                 <DashboardDiagnostic
                   onStart={() => navigate('diagnostic')}
                 />
-
-
-
-
-
-
-
-                <Card className={`bg-white/70 backdrop-blur-sm ${interactiveCard} p-4 md:p-6`}>
-                  <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-[#008AF4] to-[#173DB7] rounded-lg flex items-center justify-center mb-3 md:mb-4 text-white">
-                    <Rocket size={22} className="md:h-6 md:w-6" />
-                  </div>
-                  <p className="mb-2 text-xs font-medium text-gray-600 md:text-sm">Trilha Recomendada</p>
-                  <p className="line-clamp-2 text-base font-bold leading-tight text-gray-900 md:line-clamp-1 md:text-xl">{recommendedCourses[0].title}</p>
-                  <div className="mt-4 flex flex-col items-start gap-3 md:flex-row md:items-center md:justify-between">
-                    <span className="text-xs font-bold text-[#008AF4] md:text-sm">{courseProgress(recommendedCourses[0])}% concluído</span>
-                    <Button type="button" onClick={() => navigate('trail')} variant="outline" className="w-full px-2 py-2 text-xs md:w-auto md:px-3 md:text-sm">
-                      Ver trilhas
-                    </Button>
-                  </div>
-                </Card>
 
                 <Card className={`bg-white/70 backdrop-blur-sm ${interactiveCard} p-4 md:p-6`}>
                   <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-[#008AF4] to-[#173DB7] rounded-lg flex items-center justify-center mb-3 md:mb-4 text-white">
@@ -473,30 +478,6 @@ export default function Home() {
                   <p className="mt-2 text-xs text-gray-600 md:text-sm">{stats.completedModules} checkpoints concluídos</p>
                 </Card>
               </div>
-
-              <Card className={`mb-8 bg-white/70 backdrop-blur-sm ${interactiveCard} p-4 md:p-6`}>
-                  <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
-                    <div>
-                      <p className="text-sm font-semibold text-[#008AF4] mb-1">TRILHA RECOMENDADA</p>
-                      <h3 className="text-2xl font-bold text-gray-900">Modernização Administrativa para {currentUser.name}</h3>
-                      <p className="text-gray-600 mt-2">Baseada no diagnóstico: {diagnostic.pain}</p>
-                    </div>
-                    <Button type="button" onClick={() => navigate('trail')} variant="outline">Ver trilhas</Button>
-                  </div>
-                  <div className="grid sm:grid-cols-3 gap-3">
-                    {recommendedCourses.slice(0, 3).map((course, index) => (
-                      <button key={course.id} type="button" onClick={() => openCourseIntro(course.id)} className="rounded-lg border border-[#bfe3ff] bg-[#f3fbff] p-4 text-left hover:border-[#008AF4] transition-colors">
-                        <p className="text-xs font-bold text-[#008AF4] mb-2">Etapa {index + 1}</p>
-                        <p className="font-bold text-gray-900">{course.title}</p>
-                        <p className="text-sm text-gray-600 mt-2">{courseProgress(course)}% concluído</p>
-                      </button>
-                    ))}
-                  </div>
-                </Card>
-
-              {continueCourses.length > 1 && (
-                <CourseGrid title="Outros cursos em andamento" courses={continueCourses.slice(1)} progressFor={courseProgress} onStart={openCourseIntro} />
-              )}
             </div>
           )}
 
@@ -536,39 +517,32 @@ export default function Home() {
           )}
 
           {currentPage === 'lesson' && (
-            <div className="relative p-5">
-              <button type="button" onClick={() => navigate('courses')} className="mb-4 text-[#008AF4] hover:text-[#173DB7] font-medium flex items-center gap-2 transition-colors">
+            <div className="relative p-3 sm:p-5">
+              <button type="button" onClick={() => navigate('courses')} className="mb-3 flex items-center gap-2 text-sm font-medium text-[#008AF4] transition-colors hover:text-[#173DB7] sm:mb-4 sm:text-base">
                 ← Voltar aos Cursos
               </button>
 
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-3 lg:gap-5">
                 <div className="lg:col-span-2">
-                  <Card className="relative overflow-visible bg-white/85 backdrop-blur-sm border border-[#d5dce5] p-5 mb-5">
-                    <h2 className="text-2xl font-bold text-gray-900 mb-3">Módulo {currentModule + 1}: {currentLesson.title}</h2>
-                    <div className="flex flex-wrap gap-4 text-sm text-gray-600 mb-4 pb-4 border-b border-[#bfe3ff]">
-                      <span className="flex items-center gap-2"><Clock className="text-[#008AF4]" size={16} /> {currentLesson.time} minutos</span>
-                      <span className="flex items-center gap-2"><BarChart3 className="text-[#1464E9]" size={16} /> Nível: {selectedCourse.level}</span>
-                      <span className="flex items-center gap-2"><Check className="text-[#008AF4]" size={16} /> Com checkpoint</span>
+                  <Card className="relative mb-3 overflow-visible border border-[#d5dce5] bg-white/85 p-3 shadow-sm backdrop-blur-sm sm:mb-5 sm:p-5">
+                    <h2 className="mb-2 text-xl font-bold leading-tight text-gray-900 sm:mb-3 sm:text-2xl">Módulo {currentModule + 1}: {currentLesson.title}</h2>
+                    <div className="mb-3 flex flex-wrap gap-x-3 gap-y-2 border-b border-[#bfe3ff] pb-3 text-xs text-gray-600 sm:mb-4 sm:gap-4 sm:pb-4 sm:text-sm">
+                      <span className="flex items-center gap-1.5 sm:gap-2"><Clock className="h-4 w-4 text-[#008AF4]" /> {currentLesson.time} minutos</span>
+                      <span className="flex items-center gap-1.5 sm:gap-2"><BarChart3 className="h-4 w-4 text-[#1464E9]" /> Nível: {selectedCourse.level}</span>
+                      <span className="flex items-center gap-1.5 sm:gap-2"><Check className="h-4 w-4 text-[#008AF4]" /> Com checkpoint</span>
                     </div>
 
-                    <div className="space-y-2 mb-4 text-sm text-gray-700 leading-relaxed">
+                    <div className="mb-3 space-y-1.5 text-sm leading-relaxed text-gray-700 sm:mb-4 sm:space-y-2">
                       {currentLesson.paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
-                      <div className="grid sm:grid-cols-3 gap-2 pt-1">
-                        {currentLesson.highlights.map((highlight) => (
-                          <div key={highlight} className="rounded-lg border border-[#bfe3ff] bg-[#f3fbff] px-3 py-2 text-sm font-medium text-[#173DB7]">
-                            {highlight}
-                          </div>
-                        ))}
-                      </div>
                     </div>
 
-                    <div className="relative overflow-visible bg-gradient-to-br from-[#eef8ff] to-[#eef8ff] border-2 border-[#bfe3ff] rounded-lg p-4 mt-4">
-                      <h3 className="text-base font-bold text-[#173DB7] mb-3 flex items-center gap-2">
-                        <Check size={20} className="text-[#008AF4]" /> Checkpoint de Conhecimento
+                    <div className="relative mt-3 overflow-visible rounded-lg border-2 border-[#bfe3ff] bg-gradient-to-br from-[#eef8ff] to-[#eef8ff] p-3 sm:mt-4 sm:p-4">
+                      <h3 className="mb-2 flex items-center gap-2 text-sm font-bold text-[#173DB7] sm:mb-3 sm:text-base">
+                        <Check className="h-4 w-4 text-[#008AF4] sm:h-5 sm:w-5" /> Checkpoint de Conhecimento
                       </h3>
-                      <p className="font-semibold text-gray-900 mb-3">{currentLesson.question}</p>
+                      <p className="mb-2 text-sm font-semibold text-gray-900 sm:mb-3 sm:text-base">{currentLesson.question}</p>
 
-                      <div className="space-y-2 mb-4">
+                      <div className="mb-3 space-y-1.5 sm:mb-4 sm:space-y-2">
                         {currentLesson.options.map((option, idx) => {
                           const isSelected = selectedAnswer === idx;
                           const isCorrect = idx === currentLesson.correct;
@@ -577,31 +551,31 @@ export default function Home() {
                               key={option}
                               type="button"
                               onClick={() => !answered && setSelectedAnswer(idx)}
-                              className={`w-full px-3 py-2.5 text-left rounded-lg border-2 transition-all font-medium flex items-center gap-3 ${
+                              className={`flex w-full items-center gap-2 rounded-lg border-2 px-2.5 py-2 text-left text-sm font-medium transition-all sm:gap-3 sm:px-3 sm:py-2.5 ${
                                 isSelected
                                   ? answered
                                     ? isCorrect
-                                      ? 'border-[#008AF4] bg-[#eef8ff] text-[#173DB7]'
+                                      ? 'border-green-500 bg-green-50 text-green-800'
                                       : 'border-red-500 bg-red-50 text-red-900'
                                     : 'border-[#008AF4] bg-[#eef8ff] text-[#173DB7]'
                                   : answered && isCorrect
-                                    ? 'border-[#008AF4] bg-[#eef8ff] text-[#173DB7]'
+                                    ? 'border-green-500 bg-green-50 text-green-800'
                                     : 'border-gray-300 bg-white text-gray-900 hover:border-[#173DB7] hover:bg-[#eef8ff]'
                               }`}
                               disabled={answered}
                             >
-                              <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                              <span className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full border-2 sm:h-5 sm:w-5 ${
                                 isSelected
                                   ? answered
                                     ? isCorrect
-                                      ? 'border-[#008AF4] bg-[#008AF4]'
+                                      ? 'border-green-500 bg-green-500'
                                       : 'border-red-500 bg-red-500'
                                     : 'border-[#008AF4] bg-[#008AF4]'
                                   : answered && isCorrect
-                                    ? 'border-[#008AF4] bg-[#008AF4]'
+                                    ? 'border-green-500 bg-green-500'
                                     : 'border-gray-400'
                               }`}>
-                                {(isSelected || (answered && isCorrect)) && <Check size={16} className="text-white" />}
+                                {(isSelected || (answered && isCorrect)) && <Check className="h-3.5 w-3.5 text-white sm:h-4 sm:w-4" />}
                               </span>
                               <span>{option}</span>
                             </button>
@@ -610,33 +584,44 @@ export default function Home() {
                       </div>
 
                       {answered && (
-                        <div className={`p-3 rounded-lg mb-4 flex gap-3 text-sm ${
-                          selectedAnswer === currentLesson.correct ? 'bg-[#eef8ff] border border-[#9bd4ff] text-[#173DB7]' : 'bg-red-100 border border-red-300 text-red-900'
+                        <div className={`mb-3 flex gap-2 rounded-lg p-2.5 text-sm sm:mb-4 sm:gap-3 sm:p-3 ${
+                          selectedAnswer === currentLesson.correct ? 'bg-green-50 border border-green-300 text-green-800' : 'bg-red-100 border border-red-300 text-red-900'
                         }`}>
-                          <div className="flex-shrink-0 mt-1">{selectedAnswer === currentLesson.correct ? <Check size={20} /> : <X size={20} />}</div>
+                          <div className="mt-0.5 flex-shrink-0 sm:mt-1">{selectedAnswer === currentLesson.correct ? <Check className="h-5 w-5" /> : <X className="h-5 w-5" />}</div>
                           <div>
-                            <p className="font-semibold mb-1">{selectedAnswer === currentLesson.correct ? 'Correto!' : 'Ainda não. Tente novamente para liberar o próximo módulo.'}</p>
+                            <p className="font-semibold mb-1">{selectedAnswer === currentLesson.correct ? 'Correto!' : 'Ainda não. Tente novamente quando quiser.'}</p>
                             <p>{currentLesson.explanation}</p>
                             <p className="text-xs mt-1">Tentativas neste checkpoint: {attempts[currentAttemptKey] ?? 0}</p>
                           </div>
                         </div>
                       )}
 
-                      <div className="flex flex-col sm:flex-row gap-3">
-                        <Button type="button" onClick={() => navigate('courses')} variant="outline" className="flex-1">Cancelar</Button>
+                      <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
+                        <Button
+                          type="button"
+                          onClick={() => (currentModule > 0 ? resetQuizState(currentModule - 1) : navigate('courses'))}
+                          variant="outline"
+                          className="flex-1 hover:bg-gray-200 hover:text-gray-800"
+                        >
+                          {currentModule > 0 ? 'Voltar a pergunta anterior' : 'Cancelar'}
+                        </Button>
                         {!answered && (
-                          <Button type="button" onClick={submitAnswer} disabled={selectedAnswer === null} className="flex-1 bg-gradient-to-r from-[#008AF4] to-[#173DB7] hover:from-[#173DB7] hover:to-[#173DB7] text-white">
-                            Verificar Resposta
+                          <Button
+                            type="button"
+                            onClick={selectedAnswer === null ? skipQuestion : submitAnswer}
+                            className="flex-1 bg-gradient-to-r from-[#008AF4] to-[#173DB7] text-white hover:from-[#173DB7] hover:to-[#173DB7]"
+                          >
+                            {selectedAnswer === null ? 'Pular pergunta' : 'Verificar Resposta'}
                           </Button>
                         )}
                         {answered && selectedAnswer !== currentLesson.correct && (
-                          <Button type="button" onClick={retryQuestion} className="flex-1 bg-gradient-to-r from-[#008AF4] to-[#173DB7] hover:from-[#173DB7] hover:to-[#173DB7] text-white">
+                          <Button type="button" onClick={retryQuestion} className="flex-1 bg-gradient-to-r from-[#008AF4] to-[#173DB7] text-white hover:from-[#173DB7] hover:to-[#173DB7]">
                             Tentar Novamente
                           </Button>
                         )}
                         {answered && selectedAnswer === currentLesson.correct && (
-                          <Button type="button" onClick={nextModule} className="flex-1 bg-gradient-to-r from-[#008AF4] to-[#173DB7] hover:from-[#173DB7] hover:to-[#173DB7] text-white">
-                            {currentModule < selectedCourse.modules.length - 1 ? 'Próximo Módulo →' : 'Concluir Curso'}
+                          <Button type="button" onClick={nextModule} className="flex-1 bg-gradient-to-r from-[#008AF4] to-[#173DB7] text-white hover:from-[#173DB7] hover:to-[#173DB7]">
+                            {currentModule < selectedCourse.modules.length - 1 ? 'Próximo Módulo →' : completedModules.length === selectedCourse.modules.length ? 'Concluir Curso' : 'Ir para pendentes'}
                           </Button>
                         )}
                       </div>
@@ -646,30 +631,26 @@ export default function Home() {
                 </div>
 
                 <div className="lg:col-span-1">
-                  <Card className="bg-white/85 backdrop-blur-sm border border-[#d5dce5] p-5 sticky top-24">
-                    <MascotTip title="Dica da Nina" compact className="mb-4 max-w-none">
+                  <Card className="sticky top-24 border border-[#d5dce5] bg-white/85 p-3 shadow-sm backdrop-blur-sm sm:p-5">
+                    <MascotTip title="Dica da Nina" compact className="mb-4 hidden max-w-none sm:flex">
                       Leia os destaques e responda com calma. Se errar, eu mostro o caminho para tentar de novo.
                     </MascotTip>
-                    <h4 className="font-bold text-lg text-gray-900 mb-4 flex items-center gap-2"><BookOpen size={22} className="text-[#008AF4]" /> Módulos</h4>
-                    <div className="space-y-2">
+                    <h4 className="mb-3 flex items-center gap-2 text-base font-bold text-gray-900 sm:mb-4 sm:text-lg"><BookOpen className="h-5 w-5 text-[#008AF4] sm:h-[22px] sm:w-[22px]" /> Módulos</h4>
+                    <div className="space-y-1.5 sm:space-y-2">
                       {selectedCourse.modules.map((module, idx) => {
                         const isCompleted = completedModules.includes(module.id);
-                        const isUnlocked = idx === 0 || completedModules.includes(selectedCourse.modules[idx - 1].id);
                         return (
                           <button
                             key={module.id}
                             type="button"
-                            onClick={() => isUnlocked && resetQuizState(idx)}
-                            className={`w-full text-left p-3 rounded-lg transition-all font-medium text-sm ${
+                            onClick={() => resetQuizState(idx)}
+                            className={`w-full rounded-lg p-2.5 text-left text-sm font-medium transition-all sm:p-3 ${
                               currentModule === idx
                                 ? 'bg-gradient-to-r from-[#008AF4] to-[#173DB7] text-white shadow-lg'
                                 : isCompleted
                                   ? 'bg-[#eef8ff] text-[#173DB7] border border-[#9bd4ff] hover:bg-[#d9efff]'
-                                  : isUnlocked
-                                    ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                    : 'bg-gray-50 text-gray-400'
+                                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                             }`}
-                            disabled={!isUnlocked}
                           >
                             <span className="flex items-start gap-2">
                               <span className="mt-1">{isCompleted ? <Check size={18} /> : currentModule === idx ? <span className="inline-block w-2 h-2 bg-current rounded-full mt-1.5" /> : idx + 1}</span>
@@ -819,7 +800,7 @@ export default function Home() {
             <SimplePage
               title="Ajuda"
               icon={HelpCircle}
-              body="Para avançar, leia o módulo, responda o checkpoint corretamente e use o botão de próximo módulo. Certificados aparecem automaticamente quando um curso chega a 100%."
+              body="Você pode navegar pelos módulos na ordem que preferir, pular checkpoints e voltar depois. Certificados aparecem automaticamente quando um curso chega a 100%."
               actionLabel="Ir para cursos"
               onAction={() => navigate('courses')}
             />
@@ -1213,7 +1194,7 @@ function TrailPage({
 }) {
   return (
     <div className="relative p-4 sm:p-8">
-      <div className="mb-10 flex flex-wrap items-start justify-between gap-4">
+      <div className="mb-16 flex flex-wrap items-start justify-between gap-4 xl:mb-20">
         <div>
           <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-3">Minhas Trilhas</h2>
           <p className="text-lg text-gray-600">Percurso sugerido para estudar no ritmo do servidor e aplicar no trabalho.</p>
@@ -1221,7 +1202,7 @@ function TrailPage({
       </div>
 
 
-      <div className="absolute right-8 top-4 z-20 hidden max-w-md xl:flex">
+      <div className="absolute right-10 top-6 z-20 hidden max-w-md xl:flex">
         <MascotTip title="Por que essa ordem?">
           A Nina usa suas respostas do diagnóstico para priorizar os temas mais adequados ao seu perfil. Caso queira mudar a recomendação, refaça o diagnóstico!
         </MascotTip>
