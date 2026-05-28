@@ -15,15 +15,17 @@ export function MascotTip({
   compact = false,
   className = '',
   mobilePopup = false,
+  initialOpen = false,
 }: {
   title: string;
   children: ReactNode;
   compact?: boolean;
   className?: string;
   mobilePopup?: boolean;
+  initialOpen?: boolean;
 }) {
   const [visible, setVisible] = useState(true);
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(initialOpen);
 
   if (!visible) return null;
 
