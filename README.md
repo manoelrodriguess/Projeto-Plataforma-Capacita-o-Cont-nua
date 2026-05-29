@@ -25,19 +25,38 @@ pnpm install
 Inicie o ambiente de desenvolvimento:
 
 ```
-pnpm run dev
+npm run dev
 ```
 
 Por padrao, o Vite inicia em `http://localhost:3000` ou na proxima porta disponivel.
 
 ## Scripts
 
-- `pnpm run dev`: inicia o frontend com Vite.
-- `pnpm run build`: gera o build do frontend e compila o backend.
-- `pnpm run start`: executa a aplicacao em modo de producao.
-- `pnpm run preview`: visualiza o build do frontend localmente.
-- `pnpm run check`: verifica os tipos TypeScript.
-- `pnpm run format`: formata o codigo com Prettier.
+- `npm run dev`: inicia o frontend com Vite, igual ao ambiente local atual.
+- `npm run dev:frontend`: inicia apenas o frontend com Vite.
+- `npm run dev:backend`: inicia apenas o backend Express.
+- `npm run build`: gera o build estatico do frontend em `dist/public`.
+- `npm run build:full`: gera o build completo, frontend e backend.
+- `npm run build:frontend`: gera apenas o build estatico do frontend em `dist/public`.
+- `npm run build:backend`: compila apenas o backend Express em `dist`.
+- `npm run start`: executa o backend compilado em modo de producao.
+- `npm run preview`: visualiza o build do frontend localmente.
+- `npm run check`: verifica os tipos TypeScript.
+- `npm run format`: formata o codigo com Prettier.
+
+## Deploy
+
+Use a Vercel para publicar o frontend estatico:
+
+- Framework preset: `Vite`
+- Build command: `pnpm run build`
+- Output directory: `dist/public`
+- Install command: `pnpm install --frozen-lockfile`
+- Root directory: raiz do repositorio
+
+O arquivo `vercel.json` ja deixa essas configuracoes no repositorio e tambem redireciona as rotas do app para `index.html`.
+
+Observacao: hoje o backend Express fica apenas como base para uma evolucao futura. Como o prototipo nao consome API de negocio, nao e necessario publicar no Render agora. Quando forem criadas rotas de API, o frontend pode chamar a URL do backend por uma variavel como `VITE_API_URL`.
 
 ## Estrutura
 
