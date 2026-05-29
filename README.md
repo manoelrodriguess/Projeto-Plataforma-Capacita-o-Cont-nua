@@ -45,7 +45,7 @@ Use a Vercel para publicar o frontend estatico:
 - Framework preset: `Vite`
 - Build command: `npm run build`
 - Output directory: `dist/public`
-- Install command: `npm install --legacy-peer-deps`
+- Install command: `npm install --legacy-peer-deps --no-package-lock`
 - Root directory: raiz do repositorio
 
 O arquivo `vercel.json` ja deixa essas configuracoes no repositorio e tambem redireciona as rotas do app para `index.html`.
@@ -73,7 +73,6 @@ InnovaGov/
 |-- packages/
 |   `-- shared/               # Codigo compartilhado entre frontend e backend
 |-- package.json              # Scripts e dependencias
-|-- package-lock.json         # Lockfile das dependencias npm
 |-- tsconfig.json             # Configuracao TypeScript
 |-- vite.config.ts            # Configuracao Vite
 ```
